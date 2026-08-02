@@ -69,15 +69,32 @@ def health():
 
 @app.get("/tasks")
 def get_all_tasks():
-    return tasks 
+    """Returns a list of all tasks in the in-memory database."""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM tasks")
+
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    return tasks
 
 @app.get("/tasks/{id}", responses={404: {"description": "Task not found"}})
 def get_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            return task
-    return JSONResponse(status_code=404, content={"error": f"Task {id} not found"})
+    """Returns a single task matching the provided ID."""
+    conn = get_db()
+    cursor = conn.cursor()
 
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row is None:
+        return JSONResponse(status_code=404, content={"error": f"Task{id} not found"})
+
+    return dict(row)
+    
 @app.post("/tasks", responses={400: {"description": "Invalid input - Title is missing or empty"}})
 def create_task(task_in: TaskCreate):
     if not task_in.title or not task_in.title.strip():
