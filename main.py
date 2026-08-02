@@ -94,25 +94,29 @@ def get_task(id: int):
         return JSONResponse(status_code=404, content={"error": f"Task{id} not found"})
 
     return dict(row)
-    
-@app.post("/tasks", responses={400: {"description": "Invalid input - Title is missing or empty"}})
+
+@app.post("/tasks", status_code=201, responses={400: {"description": "Invalid input - Title is missing or empty"}})
 def create_task(task_in: TaskCreate):
+    """Creates a new task and assigns it a unique ID."""
     if not task_in.title or not task_in.title.strip():
         return JSONResponse(status_code=400, content={"error": "Title is missing or empty"})
     
-    if len(tasks) > 0:
-        next_id = max(task["id"] for task in tasks) + 1
-    else:
-        next_id = 1
-    
-    new_task = {
-        "id": next_id,
-        "title": task_in.title.strip(),
-        "done": False
-    }
-    tasks.append(new_task)
-    return JSONResponse(status_code=201, content=new_task)
+    conn = get_db()
+    cursor = conn.cursor()
 
+    cursor.execute(
+        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        (task_in.title.strip(), 0)
+    )
+    conn.commit() # Fixed the missing parentheses here!
+    
+    new_id = cursor.lastrowid
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (new_id,))
+    new_task = dict(cursor.fetchone())
+    conn.close()
+
+    return JSONResponse(status_code=201, content=new_task)
+    
 @app.put("/tasks/{id}" , responses={400: {"description": "Invalid body"}, 404: {"description": "Task not found"}})
 def update_task(id: int, task_in: TaskUpdate):
     if task_in.title is None and task_in.done is None:
