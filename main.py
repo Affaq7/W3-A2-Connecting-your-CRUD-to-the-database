@@ -116,27 +116,60 @@ def create_task(task_in: TaskCreate):
     conn.close()
 
     return JSONResponse(status_code=201, content=new_task)
-    
+
 @app.put("/tasks/{id}" , responses={400: {"description": "Invalid body"}, 404: {"description": "Task not found"}})
 def update_task(id: int, task_in: TaskUpdate):
+    """Updates the title or completion status of an existing task."""
     if task_in.title is None and task_in.done is None:
         return JSONResponse(status_code=400, content={"error": "Body cannot be empty"})
+
     if task_in.title is not None and not task_in.title.strip():
         return JSONResponse(status_code=400, content={"error": "Title cannot be empty"})
     
-    for task in tasks:
-        if task["id"] == id:
-            if task_in.title is not None:
-                task["title"] = task_in.title.strip()
-            if task_in.done is not None:
-                task["done"] = task_in.done
-            return task
-    return JSONResponse(status_code=404, content={"error": f"Task {id} not found"})
+    conn = get_db()
+    cursor = conn.cursor()
 
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (id,))
+    row = cursor.fetchone()
+
+    if row is None:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": f"Task {id} not found"})
+
+    existing_task = dict(row)
+
+    new_title = task_in.title.strip() if task_in.title is not None else existing_task["title"]
+
+    if task_in.done is not None:
+        new_done = 1 if task_in.done else 0
+    else:
+        new_done = existing_task["done"]
+    
+    cursor.execute(
+        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+        (new_title, new_done, id)
+    )
+    conn.commit()
+
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (id,))
+    updated_task = dict(cursor.fetchone())
+    conn.close()
+
+    return updated_task
+    
 @app.delete("/tasks/{id}", responses={404: {"description": "Task not found"}})
 def delete_task(id: int):
-    for i, task in enumerate(tasks):
-        if task["id"] == id:
-            tasks.pop(i)
-            return Response(status_code = 204)
-    return JSONResponse(status_code=404, content={"error": f"Task {id} not found"})
+    """Deletes a task from the list based on its ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (id,))
+    conn.commit()
+
+    deleted_count = cursor.rowcount # Fixed the typo here!
+    conn.close()
+
+    if deleted_count == 0:
+        return JSONResponse(status_code=404, content={"error": f"Task{id} not found"})
+
+    return Response(status_code = 204)
