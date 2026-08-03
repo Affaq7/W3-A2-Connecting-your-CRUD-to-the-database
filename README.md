@@ -101,7 +101,7 @@ Opened `tasks.db` in DB Browser for SQLite and ran manual queries (see below). C
 ![Stage 4 - DB Browser](Screenshots/table.png)
 
 ### Stage 5 — Database documentation
-Final clean-clone check: deleted `tasks.db`, restarted the server, and confirmed it recreated the database and reseeded 3 tasks automatically.
+Final clean-clone check: restarted the server and confirmed it recreated the database and reseeded 3 tasks automatically.
 
 ![Stage 5 output](Screenshots/stage5.png)
 
